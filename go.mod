@@ -80,11 +80,8 @@ require (
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
-	github.com/prometheus/common v0.6.0 // indirect
-	github.com/prometheus/procfs v0.0.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20190706150252-9beb055b7962 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rs/cors v1.6.0
@@ -160,3 +157,5 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
 	k8s.io/client-go => k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 )
+
+go 1.13
