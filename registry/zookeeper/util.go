@@ -50,7 +50,7 @@ func createPath(path string, data []byte, client *zk.Conn) error {
 		name += v
 		e, _, _ := client.Exists(name)
 		if !e {
-			_, err = client.Create(name, []byte{}, int32(0), zk.WorldACL(zk.PermAll))
+			_, err = client.Create(name, []byte{}, int32(zk.FlagEphemeral), zk.WorldACL(zk.PermAll))
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func createPath(path string, data []byte, client *zk.Conn) error {
 		name += "/"
 	}
 
-	_, err = client.Create(path, data, int32(0), zk.WorldACL(zk.PermAll))
+	_, err = client.Create(path, data, int32(zk.FlagEphemeral), zk.WorldACL(zk.PermAll))
 	return err
 }
 
