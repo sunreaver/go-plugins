@@ -50,7 +50,7 @@ func createPath(path string, data []byte, client *zk.Conn, flag int) error {
 		name += v
 		e, _, _ := client.Exists(name)
 		if !e {
-			_, err = client.Create(name, []byte{}, int32(flag), zk.WorldACL(zk.PermAll))
+			_, err = client.Create(name, []byte{}, int32(0), zk.WorldACL(zk.PermAll))
 			if err != nil {
 				return err
 			}
