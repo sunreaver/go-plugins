@@ -66,7 +66,7 @@ func configure(z *zookeeperRegistry, opts ...registry.Option) error {
 	}
 
 	// create our prefix path
-	if err := createPath(prefix, []byte{}, c); err != nil {
+	if err := createPath(prefix, []byte{}, c, 0); err != nil {
 		log.Fatal(err)
 	}
 
@@ -153,7 +153,7 @@ func (z *zookeeperRegistry) Register(s *registry.Service, opts ...registry.Regis
 				return err
 			}
 		} else {
-			err := createPath(nodePath(service.Name, node.Id), srv, z.client)
+			err := createPath(nodePath(service.Name, node.Id), srv, z.client, zk.FlagEphemeral)
 			if err != nil {
 				return err
 			}
@@ -302,7 +302,7 @@ func NewRegistry(opts ...registry.Option) registry.Registry {
 	}
 
 	// create our prefix path
-	if err := createPath(prefix, []byte{}, c); err != nil {
+	if err := createPath(prefix, []byte{}, c, 0); err != nil {
 		log.Fatal(err)
 	}
 

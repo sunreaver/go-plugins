@@ -33,7 +33,7 @@ func servicePath(s string) string {
 	return path.Join(prefix, strings.Replace(s, "/", "-", -1))
 }
 
-func createPath(path string, data []byte, client *zk.Conn) error {
+func createPath(path string, data []byte, client *zk.Conn, flag int) error {
 	exists, _, err := client.Exists(path)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func createPath(path string, data []byte, client *zk.Conn) error {
 		name += v
 		e, _, _ := client.Exists(name)
 		if !e {
-			_, err = client.Create(name, []byte{}, int32(zk.FlagEphemeral), zk.WorldACL(zk.PermAll))
+			_, err = client.Create(name, []byte{}, int32(flag), zk.WorldACL(zk.PermAll))
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func createPath(path string, data []byte, client *zk.Conn) error {
 		name += "/"
 	}
 
-	_, err = client.Create(path, data, int32(zk.FlagEphemeral), zk.WorldACL(zk.PermAll))
+	_, err = client.Create(path, data, int32(flag), zk.WorldACL(zk.PermAll))
 	return err
 }
 
