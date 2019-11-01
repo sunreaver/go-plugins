@@ -11,7 +11,7 @@ import (
 
 	mc "github.com/bradfitz/gomemcache/memcache"
 	"github.com/micro/go-micro/config/options"
-	"github.com/micro/go-micro/data/store"
+	"github.com/micro/go-micro/store"
 )
 
 type mkv struct {
@@ -20,38 +20,57 @@ type mkv struct {
 	Client *mc.Client
 }
 
-func (m *mkv) Read(key string) (*store.Record, error) {
-	keyval, err := m.Client.Get(key)
-	if err != nil && err == mc.ErrCacheMiss {
-		return nil, store.ErrNotFound
-	} else if err != nil {
-		return nil, err
+func (m *mkv) Read(keys ...string) ([]*store.Record, error) {
+	var records []*store.Record
+
+	for _, key := range keys {
+		keyval, err := m.Client.Get(key)
+		if err != nil && err == mc.ErrCacheMiss {
+			return nil, store.ErrNotFound
+		} else if err != nil {
+			return nil, err
+		}
+
+		if keyval == nil {
+			return nil, store.ErrNotFound
+		}
+
+		records = append(records, &store.Record{
+			Key:    keyval.Key,
+			Value:  keyval.Value,
+			Expiry: time.Second * time.Duration(keyval.Expiration),
+		})
 	}
+	return records, nil
+}
 
-	if keyval == nil {
-		return nil, store.ErrNotFound
+func (m *mkv) Delete(keys ...string) error {
+	var err error
+	for _, key := range keys {
+		if err = m.Client.Delete(key); err != nil {
+			return err
+		}
 	}
-
-	return &store.Record{
-		Key:    keyval.Key,
-		Value:  keyval.Value,
-		Expiry: time.Second * time.Duration(keyval.Expiration),
-	}, nil
+	return nil
 }
 
-func (m *mkv) Delete(key string) error {
-	return m.Client.Delete(key)
+func (m *mkv) Write(records ...*store.Record) error {
+	var err error
+
+	for _, record := range records {
+		err = m.Client.Set(&mc.Item{
+			Key:        record.Key,
+			Value:      record.Value,
+			Expiration: int32(record.Expiry.Seconds()),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (m *mkv) Write(record *store.Record) error {
-	return m.Client.Set(&mc.Item{
-		Key:        record.Key,
-		Value:      record.Value,
-		Expiration: int32(record.Expiry.Seconds()),
-	})
-}
-
-func (m *mkv) Dump() ([]*store.Record, error) {
+func (m *mkv) List() ([]*store.Record, error) {
 	// stats
 	// cachedump
 	// get keys
@@ -132,7 +151,7 @@ func (m *mkv) Dump() ([]*store.Record, error) {
 	var vals []*store.Record
 
 	// concurrent op
-	ch := make(chan *store.Record, len(keys))
+	ch := make(chan []*store.Record, len(keys))
 
 	for _, k := range keys {
 		go func(key string) {
@@ -142,13 +161,13 @@ func (m *mkv) Dump() ([]*store.Record, error) {
 	}
 
 	for i := 0; i < len(keys); i++ {
-		record := <-ch
+		records := <-ch
 
-		if record == nil {
+		if records == nil {
 			continue
 		}
 
-		vals = append(vals, record)
+		vals = append(vals, records...)
 	}
 
 	close(ch)
