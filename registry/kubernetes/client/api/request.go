@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/micro/go-plugins/registry/kubernetes/client/watch"
+	"github.com/micro/go-plugins/registry/kubernetes/v2/client/watch"
 )
 
 // Request is used to construct a http request for the k8s API.
@@ -100,7 +100,14 @@ func (r *Request) Body(in interface{}) *Request {
 // Params isused to set paramters on a request
 func (r *Request) Params(p *Params) *Request {
 	for k, v := range p.LabelSelector {
-		r.params.Add("labelSelector", k+"="+v)
+		// create new key=value pair
+		value := fmt.Sprintf("%s=%s", k, v)
+		// check if there's an existing value
+		if label := r.params.Get("labelSelector"); len(label) > 0 {
+			value = fmt.Sprintf("%s,%s", label, value)
+		}
+		// set and overwrite the value
+		r.params.Set("labelSelector", value)
 	}
 
 	return r

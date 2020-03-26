@@ -4,11 +4,7 @@ import (
 	"io"
 
 	"github.com/asim/go-bson"
-	"github.com/micro/go-micro/codec"
-)
-
-const (
-	bufferSize = 4096
+	"github.com/micro/go-micro/v2/codec"
 )
 
 type clientCodec struct {

@@ -8,9 +8,12 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/google/uuid"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/config/cmd"
+	"github.com/micro/go-micro/v2/broker"
+	"github.com/micro/go-micro/v2/config/cmd"
+	log "github.com/micro/go-micro/v2/logger"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type pubsubBroker struct {
@@ -31,6 +34,7 @@ type publication struct {
 	pm    *pubsub.Message
 	m     *broker.Message
 	topic string
+	err   error
 }
 
 func init() {
@@ -70,7 +74,8 @@ func (s *subscriber) run(hdlr broker.Handler) {
 				}
 
 				// If the error is nil lets check if we should auto ack
-				if err := hdlr(p); err == nil {
+				p.err = hdlr(p)
+				if p.err == nil {
 					// auto ack?
 					if s.options.AutoAck {
 						p.Ack()
@@ -110,6 +115,10 @@ func (p *publication) Ack() error {
 	return nil
 }
 
+func (p *publication) Error() error {
+	return p.err
+}
+
 func (p *publication) Topic() string {
 	return p.topic
 }
@@ -140,22 +149,9 @@ func (b *pubsubBroker) Options() broker.Options {
 }
 
 // Publish checks if the topic exists and then publishes via google pubsub
-func (b *pubsubBroker) Publish(topic string, msg *broker.Message, opts ...broker.PublishOption) error {
+func (b *pubsubBroker) Publish(topic string, msg *broker.Message, opts ...broker.PublishOption) (err error) {
 	t := b.client.Topic(topic)
 	ctx := context.Background()
-
-	exists, err := t.Exists(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		tt, err := b.client.CreateTopic(ctx, topic)
-		if err != nil {
-			return err
-		}
-		t = tt
-	}
 
 	m := &pubsub.Message{
 		ID:         "m-" + uuid.New().String(),
@@ -164,8 +160,16 @@ func (b *pubsubBroker) Publish(topic string, msg *broker.Message, opts ...broker
 	}
 
 	pr := t.Publish(ctx, m)
-	_, err = pr.Get(ctx)
-	return err
+	if _, err = pr.Get(ctx); err != nil {
+		// create Topic if not exists
+		if status.Code(err) == codes.NotFound {
+			log.Infof("Topic not exists. creating Topic: %s", topic)
+			if t, err = b.client.CreateTopic(ctx, topic); err == nil {
+				_, err = t.Publish(ctx, m).Get(ctx)
+			}
+		}
+	}
+	return
 }
 
 // Subscribe registers a subscription to the given topic against the google pubsub api

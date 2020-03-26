@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/config/cmd"
+	"github.com/micro/go-micro/v2/broker"
+	"github.com/micro/go-micro/v2/config/cmd"
 	"github.com/streadway/amqp"
 )
 
@@ -36,9 +36,10 @@ type subscriber struct {
 }
 
 type publication struct {
-	d amqp.Delivery
-	m *broker.Message
-	t string
+	d   amqp.Delivery
+	m   *broker.Message
+	t   string
+	err error
 }
 
 func init() {
@@ -47,6 +48,10 @@ func init() {
 
 func (p *publication) Ack() error {
 	return p.d.Ack(false)
+}
+
+func (p *publication) Error() error {
+	return p.err
 }
 
 func (p *publication) Topic() string {
@@ -163,7 +168,7 @@ func (r *rbroker) Publish(topic string, msg *broker.Message, opts ...broker.Publ
 		return errors.New("connection is nil")
 	}
 
-	return r.conn.Publish(r.conn.exchange.name, topic, m)
+	return r.conn.Publish(r.conn.exchange.Name, topic, m)
 }
 
 func (r *rbroker) Subscribe(topic string, handler broker.Handler, opts ...broker.SubscribeOption) (broker.Subscriber, error) {
@@ -191,10 +196,10 @@ func (r *rbroker) Subscribe(topic string, handler broker.Handler, opts ...broker
 		ctx = subscribeContext
 	}
 
-	requeueOnError := false
+	var requeueOnError bool
 	requeueOnError, _ = ctx.Value(requeueOnErrorKey{}).(bool)
 
-	durableQueue := false
+	var durableQueue bool
 	durableQueue, _ = ctx.Value(durableQueueKey{}).(bool)
 
 	var qArgs map[string]interface{}
@@ -221,10 +226,11 @@ func (r *rbroker) Subscribe(topic string, handler broker.Handler, opts ...broker
 			Header: header,
 			Body:   msg.Body,
 		}
-		err := handler(&publication{d: msg, m: m, t: msg.RoutingKey})
-		if err == nil && ackSuccess && !opt.AutoAck {
+		p := &publication{d: msg, m: m, t: msg.RoutingKey}
+		p.err = handler(p)
+		if p.err == nil && ackSuccess && !opt.AutoAck {
 			msg.Ack(false)
-		} else if err != nil && !opt.AutoAck {
+		} else if p.err != nil && !opt.AutoAck {
 			msg.Nack(false, requeueOnError)
 		}
 	}
@@ -300,16 +306,16 @@ func NewBroker(opts ...broker.Option) broker.Broker {
 	}
 }
 
-func (r *rbroker) getExchange() exchange {
+func (r *rbroker) getExchange() Exchange {
 
 	ex := DefaultExchange
 
 	if e, ok := r.opts.Context.Value(exchangeKey{}).(string); ok {
-		ex.name = e
+		ex.Name = e
 	}
 
 	if d, ok := r.opts.Context.Value(durableExchange{}).(bool); ok {
-		ex.durable = d
+		ex.Durable = d
 	}
 
 	return ex

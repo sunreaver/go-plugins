@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/micro/go-micro/client"
-	"github.com/micro/go-micro/client/selector"
-	"github.com/micro/go-micro/registry"
-	"github.com/micro/go-micro/registry/memory"
-	"github.com/micro/go-plugins/client/http/test"
+	"github.com/micro/go-micro/v2/client"
+	"github.com/micro/go-micro/v2/client/selector"
+	"github.com/micro/go-micro/v2/registry"
+	"github.com/micro/go-micro/v2/registry/memory"
+	"github.com/micro/go-plugins/client/http/v2/test"
 )
 
 func TestHTTPClient(t *testing.T) {
@@ -73,6 +73,9 @@ func TestHTTPClient(t *testing.T) {
 			{
 				Id:      "test.service.1",
 				Address: l.Addr().String(),
+				Metadata: map[string]string{
+					"protocol": "http",
+				},
 			},
 		},
 	}); err != nil {
@@ -229,6 +232,9 @@ func TestHTTPClientStream(t *testing.T) {
 			{
 				Id:      "test.service.1",
 				Address: l.Addr().String(),
+				Metadata: map[string]string{
+					"protocol": "http",
+				},
 			},
 		},
 	}); err != nil {

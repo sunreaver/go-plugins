@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eclipse/paho.mqtt.golang"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/codec/json"
-	"github.com/micro/go-micro/config/cmd"
-	"github.com/micro/go-micro/util/log"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/micro/go-micro/v2/broker"
+	"github.com/micro/go-micro/v2/codec/json"
+	"github.com/micro/go-micro/v2/config/cmd"
+	log "github.com/micro/go-micro/v2/logger"
 )
 
 type mqttBroker struct {
@@ -40,7 +40,7 @@ func init() {
 }
 
 func setAddrs(addrs []string) []string {
-	var cAddrs []string
+	cAddrs := make([]string, 0, len(addrs))
 
 	for _, addr := range addrs {
 		if len(addr) == 0 {
@@ -219,12 +219,14 @@ func (m *mqttBroker) Subscribe(topic string, h broker.Handler, opts ...broker.Su
 	t := m.client.Subscribe(topic, 1, func(c mqtt.Client, mq mqtt.Message) {
 		var msg broker.Message
 		if err := m.opts.Codec.Unmarshal(mq.Payload(), &msg); err != nil {
-			log.Log(err)
+			log.Error(err)
 			return
 		}
 
-		if err := h(&mqttPub{topic: topic, msg: &msg}); err != nil {
-			log.Log(err)
+		p := &mqttPub{topic: topic, msg: &msg}
+		if err := h(p); err != nil {
+			p.err = err
+			log.Error(err)
 		}
 	})
 

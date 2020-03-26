@@ -9,11 +9,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/codec"
-	"github.com/micro/go-micro/metadata"
-	"github.com/micro/go-micro/registry"
-	"github.com/micro/go-micro/server"
+	"github.com/micro/go-micro/v2/broker"
+	"github.com/micro/go-micro/v2/codec"
+	"github.com/micro/go-micro/v2/metadata"
+	"github.com/micro/go-micro/v2/registry"
+	"github.com/micro/go-micro/v2/server"
 )
 
 const (
@@ -55,7 +55,6 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 }
 
 func newSubscriber(topic string, sub interface{}, opts ...server.SubscriberOption) server.Subscriber {
-
 	options := server.SubscriberOptions{
 		AutoAck: true,
 	}
@@ -259,6 +258,9 @@ func (s *httpServer) createSubHandler(sb *httpSubscriber, opts server.Options) b
 					topic:       sb.topic,
 					contentType: ct,
 					payload:     req.Interface(),
+					header:      msg.Header,
+					body:        msg.Body,
+					codec:       co,
 				})
 			}()
 		}

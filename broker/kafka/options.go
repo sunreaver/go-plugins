@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/Shopify/sarama"
-	"github.com/micro/go-micro/broker"
+	"github.com/micro/go-micro/v2/broker"
+	log "github.com/micro/go-micro/v2/logger"
 )
 
 var (
@@ -30,6 +31,12 @@ func SubscribeContext(ctx context.Context) broker.SubscribeOption {
 	return setSubscribeOption(subscribeContextKey{}, ctx)
 }
 
+type subscribeConfigKey struct{}
+
+func SubscribeConfig(c *sarama.Config) broker.SubscribeOption {
+	return setSubscribeOption(subscribeConfigKey{}, c)
+}
+
 // consumerGroupHandler is the implementation of sarama.ConsumerGroupHandler
 type consumerGroupHandler struct {
 	handler broker.Handler
@@ -44,17 +51,30 @@ func (*consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { retu
 func (h *consumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		var m broker.Message
+		p := &publication{m: &m, t: msg.Topic, km: msg, cg: h.cg, sess: sess}
+		eh := h.kopts.ErrorHandler
+
 		if err := h.kopts.Codec.Unmarshal(msg.Value, &m); err != nil {
+			p.err = err
+			p.m.Body = msg.Value
+			if eh != nil {
+				eh(p)
+			} else {
+				log.Errorf("[kafka]: failed to unmarshal: %v", err)
+			}
 			continue
 		}
-		if err := h.handler(&publication{
-			m:    &m,
-			t:    msg.Topic,
-			km:   msg,
-			cg:   h.cg,
-			sess: sess,
-		}); err == nil && h.subopts.AutoAck {
+
+		err := h.handler(p)
+		if err == nil && h.subopts.AutoAck {
 			sess.MarkMessage(msg, "")
+		} else if err != nil {
+			p.err = err
+			if eh != nil {
+				eh(p)
+			} else {
+				log.Errorf("[kafka]: subscriber error: %v", err)
+			}
 		}
 	}
 	return nil

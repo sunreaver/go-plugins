@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/errors"
-	"github.com/micro/go-micro/server"
+	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/errors"
+	"github.com/micro/go-micro/v2/server"
 )
 
 // Router will proxy rpc requests as http POST requests. It is a server.Router
@@ -115,6 +115,10 @@ func (p *Router) RegisterEndpoint(rpcEp, httpEp string) error {
 
 	// create ep
 	p.eps[rpcEp] = httpEp
+	return nil
+}
+
+func (p *Router) ProcessMessage(ctx context.Context, msg server.Message) error {
 	return nil
 }
 

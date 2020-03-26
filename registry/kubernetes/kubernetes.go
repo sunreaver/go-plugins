@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/micro/go-plugins/registry/kubernetes/client"
+	"github.com/micro/go-plugins/registry/kubernetes/v2/client"
 
-	"github.com/micro/go-micro/config/cmd"
-	"github.com/micro/go-micro/registry"
+	"github.com/micro/go-micro/v2/config/cmd"
+	"github.com/micro/go-micro/v2/registry"
 )
 
 type kregistry struct {
@@ -217,7 +217,7 @@ func (c *kregistry) GetService(name string) ([]*registry.Service, error) {
 		vs.Nodes = append(vs.Nodes, svc.Nodes...)
 	}
 
-	var list []*registry.Service
+	list := make([]*registry.Service, 0, len(svcs))
 	for _, val := range svcs {
 		list = append(list, val)
 	}

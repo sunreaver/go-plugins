@@ -4,7 +4,7 @@ import (
 	"errors"
 	"path"
 
-	"github.com/micro/go-micro/registry"
+	"github.com/micro/go-micro/v2/registry"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -56,6 +56,17 @@ func (zw *zookeeperWatcher) writeRespChan(resp *watchResponse) {
 	}
 }
 
+func (zw *zookeeperWatcher) writeResult(r *result) {
+	if r == nil {
+		return
+	}
+	select {
+	case <-zw.stop:
+	default:
+		zw.results <- *r
+	}
+}
+
 func (zw *zookeeperWatcher) watchDir(key string) {
 	for {
 		// get current children for a key
@@ -94,6 +105,9 @@ func (zw *zookeeperWatcher) watchDir(key string) {
 						n := path.Join(newNode, node)
 						go zw.watchKey(n)
 						s, _, err := zw.client.Get(n)
+						if err != nil {
+							continue
+						}
 						e.Type = zk.EventNodeCreated
 
 						srv, err := decode(s)
@@ -106,6 +120,9 @@ func (zw *zookeeperWatcher) watchDir(key string) {
 				} else {
 					go zw.watchKey(newNode)
 					s, _, err := zw.client.Get(newNode)
+					if err != nil {
+						continue
+					}
 					e.Type = zk.EventNodeCreated
 
 					srv, err := decode(s)
@@ -138,6 +155,9 @@ func (zw *zookeeperWatcher) watchKey(key string) {
 				if e.Type != zk.EventNodeDeleted {
 					// get the updated service
 					s, _, err = zw.client.Get(e.Path)
+					if err != nil {
+						continue
+					}
 				}
 
 				srv, err := decode(s)
@@ -159,27 +179,25 @@ func (zw *zookeeperWatcher) watchKey(key string) {
 }
 
 func (zw *zookeeperWatcher) watch() {
-	watchPath := prefix
-	if len(zw.wo.Service) > 0 {
-		watchPath = servicePath(zw.wo.Service)
-	}
 
-	//get all Services
-	services, _, err := zw.client.Children(watchPath)
-	if err != nil {
-		zw.results <- result{nil, err}
+	services := func() []string {
+		if len(zw.wo.Service) > 0 {
+			return []string{zw.wo.Service}
+		}
+		allServices, _, err := zw.client.Children(prefix)
+		if err != nil {
+			zw.writeResult(&result{nil, err})
+		}
+		return allServices
 	}
-
-	//watch the prefix for new child nodes
-	go zw.watchDir(watchPath)
 
 	//watch every service
-	for _, service := range services {
-		sPath := childPath(watchPath, service)
+	for _, service := range services() {
+		sPath := childPath(prefix, service)
 		go zw.watchDir(sPath)
 		children, _, err := zw.client.Children(sPath)
 		if err != nil {
-			zw.results <- result{nil, err}
+			zw.writeResult(&result{nil, err})
 		}
 		for _, c := range children {
 			go zw.watchKey(path.Join(sPath, c))
@@ -194,7 +212,7 @@ func (zw *zookeeperWatcher) watch() {
 			return
 		case rsp := <-zw.respChan:
 			if rsp.err != nil {
-				zw.results <- result{nil, err}
+				zw.writeResult(&result{nil, rsp.err})
 				continue
 			}
 			switch rsp.event.Type {
@@ -209,7 +227,7 @@ func (zw *zookeeperWatcher) watch() {
 				service = rsp.service
 			}
 		}
-		zw.results <- result{&registry.Result{Action: action, Service: service}, nil}
+		zw.writeResult(&result{&registry.Result{Action: action, Service: service}, nil})
 	}
 }
 
